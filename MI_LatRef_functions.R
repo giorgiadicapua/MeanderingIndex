@@ -3,7 +3,7 @@
 # the script needs a daily field of geopotential height as input, latitudes and longitudes vectors, and the isolevel 
 # and returns the value of the meandering index and its latitude
 
-# rename vertical to MI_lat_ref
+
 
 MI_lat_ref <- function ( longitudes, latitudes, hgt_field, isolvl, ref_lat, verbose ){
   
