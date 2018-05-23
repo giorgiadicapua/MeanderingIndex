@@ -3,16 +3,20 @@
 # the script needs a daily field of geopotential height as input, latitudes and longitudes vectors, and the isolevel 
 # and returns the value of the meandering index and its latitude
 
+# line 61 depends on the initial data, treat woth caution
 
 
-MI_lat_ref <- function ( longitudes, latitudes, hgt_field, isolvl, ref_lat, verbose ){
-  
-  if(verbose == TRUE){
+MI_lat_ref <- function ( longitudes, latitudes, hgt_field, isolvl, ref_lat, verbose , year, day){
+
+  if(verbose >=2){
     print("MI_lat_ref")
-    print ("latitude of reference") 
+    print ("latitude of reference")
     print(ref_lat)
     print("isolvl")
     print(isolvl)
+  }
+  if(verbose >=4){
+
     print("latitudes")
     print(latitudes)
     print("longitudes")
@@ -22,61 +26,81 @@ MI_lat_ref <- function ( longitudes, latitudes, hgt_field, isolvl, ref_lat, verb
   #init values
   curv <- 0
   curv_lat <- 0
-  
+
   # calculate position of the isopleth
   isopleth = contourLines(longitudes,latitudes,hgt_field,nlevels=1,levels=isolvl)
-  
-  # longest_iso returns 0 if the isopleth does not exist, 1 if only one isopleth is found or the number of the longest found isopleth 
+
+  # longest_iso returns 0 if the isopleth does not exist, 1 if only one isopleth is found or the number of the longest found isopleth
   i_longest_iso <- longest_iso(isopleth)
-  
+
+
   if(i_longest_iso == 0){
     # isopleth does not exist
-    print("isopleth == 0")
+    if (verbose >= 4){
+      print("isopleth does not exist")
+    }
+
     curv <- 0
-    curv_lat <- 0 
-    
+    curv_lat <- 0
+
   }else{
     # isopleth does exist
     longest_isop <- isopleth[[i_longest_iso]]
     # check whether the last and the first point of the isopleth[[i_longest_iso]]y are equal
-    print(abs(longest_isop$y[1]-longest_isop$y[length(longest_isop$y)]))
-    
+    if(verbose >= 4){
+      print(abs(longest_isop$y[1]-longest_isop$y[length(longest_isop$y)]))
+    }
+
     if(abs(longest_isop$y[1]-longest_isop$y[length(longest_isop$y)])>3){
-      print("check whether the last and the first point of the isopleth[[i_longest_iso]]y are equal")
-      print(paste("isop[1]",longest_isop$y[1],"isop[last]",longest_isop$y[length(longest_isop$y)] ))
-      
+      if(verbose >= 4){
+        print("check whether the last and the first point of the isopleth[[i_longest_iso]]y are equal")
+        print(paste("isop[1]",longest_isop$y[1],"isop[last]",longest_isop$y[length(longest_isop$y)] ))
+      }
       # how to solve the problem
-      lon_translated <-list(lon1=c(61:240,1:60),lon2=c(121:240,1:120),lon3=c(181:240,1:180))
+      # lon_translated <-list(lon1=c(61:240,1:60),lon2=c(121:240,1:120),lon3=c(181:240,1:180))
+      lon_translated <-list(lon1=c(61:length(longitudes),1:60),lon2=c(121:length(longitudes),1:120),lon3=c(181:length(longitudes),1:180))
       for(ii in 1:3){
-        print("inside the for")
+        if(verbose >= 3){
+         print("Rotation needed")
+        }
         isopleth = contourLines(longitudes,latitudes,hgt_field[lon_translated[[ii]],],nlevels=1,levels=isolvl)
         i_longest_iso <- longest_iso(isopleth)
         longest_isop <- isopleth[[i_longest_iso]]
-        
+
         if(abs(longest_isop$y[1]-longest_isop$y[length(longest_isop$y)])<3){
-          output <- curviness.ref.lat.function(longitudes, latitudes,longest_isop, ref_lat)
+          output <- curviness.ref.lat.function(longitudes, latitudes,longest_isop,hgt_field[lon_translated[[ii]],], ref_lat)
           curv <- output[[1]]
           curv_lat <- output[[2]]
-          if(curv!=0){ 
-            contour(longitudes, latitudes,hgt_field[lon_translated[[ii]],], nlevel=10,levels=seq(5000,5900,100),main=curv)
-            lines(longest_isop$x,longest_isop$y, col=189,lwd=3)
-          } 
+          if(curv!=0){
+            if (verbose >= 3){
+              x11()
+              contour(longitudes, latitudes,hgt_field[lon_translated[[ii]],], nlevel=10,levels=seq(5000,5900,100),main=paste0("Rotation needed Year ",year," Day ", day," MI = ", curv))
+              lines(longest_isop$x,longest_isop$y, col=189,lwd=3)
+            }
+
+          }
           break
         }else{
+          if (verbose >=4){
+            x11()
+            contour(longitudes, latitudes,hgt_field[lon_translated[[ii]],], nlevel=10,levels=seq(5000,5900,100),main=paste0("Rotation failed ",year," Day ", day," MI = ", curv))
+            lines(longest_isop$x,longest_isop$y, col=189,lwd=3)
+          }
+          #<- o <- 0
           curv <- 0
-          curv_lat <- 0 
+          curv_lat <- 0
         }
       }# end loop over different latitudes
-      
+
     }else{
-      
-      # calc isopleth curviness at the reference mean latitude and store the original mean latitude 
+
+      # calc isopleth curviness at the reference mean latitude and store the original mean latitude
       # Isopleths that hit the latitude-borders are disgarded
-      output <- curviness.ref.lat.function(longitudes, latitudes,longest_isop, ref_lat)
+      output <- curviness.ref.lat.function(longitudes, latitudes,longest_isop,hgt_field, ref_lat)
       curv <- output[[1]]
       curv_lat <- output[[2]]
     }# end if which check whether the isopleth is cut at the border of the field
-    
+
   }
   output_list <- list(curv=curv, curv_lat=curv_lat)
   return(output_list)
@@ -84,8 +108,11 @@ MI_lat_ref <- function ( longitudes, latitudes, hgt_field, isolvl, ref_lat, verb
 
 # script for calculate curviness and curviness at a reference lat
 
-curviness.ref.lat.function <- function(lon, lat,isop_old, ref_lat)
-{
+curviness.ref.lat.function <- function(lon, lat,isop_old, hgt_field, ref_lat) #checked
+{ 
+  # init
+  curv <- 0
+  curv_lat <- 0 
   #print(isop_old)
   #print(paste(min(isop_old$x),lon[1],max(isop_old$x),lon[length(lon)]))
   if ( 
@@ -97,7 +124,10 @@ curviness.ref.lat.function <- function(lon, lat,isop_old, ref_lat)
    ){
     # first, the mean latitude at which the original isopleth is found must be calculated because we need to know the difference between the reference
     # latitude at which we want to calculate the isopleth
-    print("calculating curviness at the latitude of reference")
+    if(verbose >=4){
+      print("calculating curviness at the latitude of reference")
+    }
+   
     lat_or <- mean(isop_old$y)
     curv_lat <- lat_or
     # the new translated laditude must be defined (nothing happens to the longitudes)
@@ -128,7 +158,10 @@ curviness.ref.lat.function <- function(lon, lat,isop_old, ref_lat)
       curv = calculate.isopleth.curviness(isop_new)
     }
   }else{
-    print("isopleth is outside latitudinal range or doesn't circle the whole globe ")
+    if (verbose >=4){
+      print("isopleth is outside latitudinal range or doesn't circle the whole globe ")
+      
+    }
     curv <- 0
     curv_lat <- 0 
     
