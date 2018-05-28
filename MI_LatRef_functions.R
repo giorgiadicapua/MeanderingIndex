@@ -58,7 +58,10 @@ MI_lat_ref <- function ( longitudes, latitudes, hgt_field, isolvl, ref_lat, verb
       }
       # how to solve the problem
       # lon_translated <-list(lon1=c(61:240,1:60),lon2=c(121:240,1:120),lon3=c(181:240,1:180))
-      lon_translated <-list(lon1=c(61:length(longitudes),1:60),lon2=c(121:length(longitudes),1:120),lon3=c(181:length(longitudes),1:180))
+      deltalon <- length(longitudes)%/%4
+      lon_translated <-list(lon1=c((deltalon+1):length(longitudes),1:deltalon),lon2=c((deltalon*2+1):length(longitudes),1:(deltalon*2)),lon3=c((deltalon*3+1):length(longitudes),1:(deltalon*3)))
+      print(deltalon)
+      print(lon_translated)
       for(ii in 1:3){
         if(verbose >= 3){
          print("Rotation needed")
@@ -68,7 +71,7 @@ MI_lat_ref <- function ( longitudes, latitudes, hgt_field, isolvl, ref_lat, verb
         longest_isop <- isopleth[[i_longest_iso]]
 
         if(abs(longest_isop$y[1]-longest_isop$y[length(longest_isop$y)])<3){
-          output <- curviness.ref.lat.function(longitudes, latitudes,longest_isop,hgt_field[lon_translated[[ii]],], ref_lat)
+          output <- curviness.ref.lat.function(longitudes, latitudes,longest_isop,hgt_field[lon_translated[[ii]],], ref_lat, isolvl, verbose)
           curv <- output[[1]]
           curv_lat <- output[[2]]
           if(curv!=0){
@@ -96,7 +99,7 @@ MI_lat_ref <- function ( longitudes, latitudes, hgt_field, isolvl, ref_lat, verb
 
       # calc isopleth curviness at the reference mean latitude and store the original mean latitude
       # Isopleths that hit the latitude-borders are disgarded
-      output <- curviness.ref.lat.function(longitudes, latitudes,longest_isop,hgt_field, ref_lat)
+      output <- curviness.ref.lat.function(longitudes, latitudes,longest_isop,hgt_field, ref_lat, isolvl, verbose)
       curv <- output[[1]]
       curv_lat <- output[[2]]
     }# end if which check whether the isopleth is cut at the border of the field
@@ -108,7 +111,7 @@ MI_lat_ref <- function ( longitudes, latitudes, hgt_field, isolvl, ref_lat, verb
 
 # script for calculate curviness and curviness at a reference lat
 
-curviness.ref.lat.function <- function(lon, lat,isop_old, hgt_field, ref_lat) #checked
+curviness.ref.lat.function <- function(lon, lat,isop_old, hgt_field, ref_lat, isolvl, verbose) #checked
 { 
   # init
   curv <- 0
